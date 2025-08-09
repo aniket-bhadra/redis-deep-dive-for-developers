@@ -24,3 +24,34 @@ We use Redis for caching instead of server RAM because storing data separately m
 **Redis is specifically designed and optimized for in-memory data operations with advanced data structures and provides built-in expiration, clustering, pub/sub, atomic operations, concurrent access, and persistence.**
 
 **Using raw server RAM directly would require building all these features from scratch which is complex and not feasible.**
+
+#### Two Redis Cache Approaches:
+
+##### Approach 1: Cache-Aside (Production Standard)
+```
+User → Server → Redis (miss) → Server → Database → Server → User
+                                ↓
+                            Server stores result in Redis
+```
+
+##### Approach 2: Read-Through
+```
+User → Server → Redis (miss) → Redis → Database → Redis → Server → User
+```
+
+#### Which is Better?
+
+**Cache-Aside (Approach 1) is better** because:
+1. **Control**: Your application server handles all logic, database queries, and error handling
+2. **Reliability**: If Redis fails, your app still works by querying the database directly  
+3. **Industry Standard**: Used by all major tech companies (Netflix, Amazon, Google) - it's battle-tested at scale
+
+Approach 2 makes Redis responsible for database operations, which reduces your control and creates a single point of failure.
+
+### redis vs redis cloud vs redis-stack
+**Redis Cloud runs on the internet so your hosted application can access it from anywhere, just like MongoDB Atlas, while Docker Redis runs locally on your PC so only local applications can access it - hosted apps cannot reach your local Docker Redis, just like local MongoDB installation.**
+
+**Locally Redis also runs as a server just like MongoDB, MySQL, and PostgreSQL.**
+
+Redis vs redis stack
+**Redis Stack includes Redis plus additional modules (JSON, Search, TimeSeries, etc.) + RedisInsight GUI while regular Redis is just the core database.**
