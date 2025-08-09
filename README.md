@@ -55,3 +55,49 @@ Approach 2 makes Redis responsible for database operations, which reduces your c
 
 Redis vs redis stack
 **Redis Stack includes Redis plus additional modules (JSON, Search, TimeSeries, etc.) + RedisInsight GUI while regular Redis is just the core database.**
+
+### installation
+After installing with Docker, go to that container terminal:
+```bash
+docker exec -it 37be311aeec4 bash
+```
+
+From the container terminal to actually talk to the server:
+```bash
+redis-cli
+```
+Now we can actually talk to this server.
+
+**When you spin up a Redis container, you first go to that container's terminal with this:**
+```
+docker exec -it 37be311aeec4 bash
+```
+**Then you do `redis-cli` to talk to the actual Redis server. question is why can't we talk to Redis server directly when we enter that container terminal?**
+
+**It's exactly like when you install MongoDB locally - in your system terminal you have to write `mongosh`. It's the same concept.**
+Why the extra step is needed:
+When you're in the container's bash terminal, you're just in a Linux shell environment. The Redis server is running as a separate process in the background. You need redis-cli (the Redis command-line interface) to actually communicate with that server process
+
+**From terminal we tell "I want to talk to this program" - that's why from terminal we write their CLI. It's just like in GUI when icons are displayed - when laptop is opened there's a list of icons displayed, you click that icon for whichever program you want to use. Similarly on terminal you can't use icons, so you write that program's CLI and then you can use it.**
+
+**That's why you first go to that container terminal and from that terminal you say "listen, I want to use redis-cli program" - that's how everything works.**
+
+in case of container , it's the container's OS that finds the executable in the container's environment variables and PATH, not the host OS.
+
+### data types
+strings
+set key value
+set name robin
+
+get name
+=>"robin"
+
+convention
+<entity>:<id> value
+set user:1 robin
+set user:2 rahul
+set user:3 angel
+
+redis based on this `entity name` groups data
+ex- all of 3 names stored in user group
+
