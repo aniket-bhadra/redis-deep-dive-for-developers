@@ -1,0 +1,15 @@
+{
+  "name": "redis",
+  "version": "1.0.0",
+  "description": "- **Caching**: Stores any frequently retrieved data to speed up access.  \r - **Memoization**: A type of caching that stores function return values for specific inputs.\r - **Redis (In-Memory DB)**: Stores data in RAM, making it super fast but temporary.  \r - **MongoDB**: Stores data on a physical drive (SSD/HDD), making it slower but permanent.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ioredis": "^5.7.0"
+  }
+}

@@ -84,20 +84,72 @@ When you're in the container's bash terminal, you're just in a Linux shell envir
 
 in case of container , it's the container's OS that finds the executable in the container's environment variables and PATH, not the host OS.
 
-### data types
-strings
+We go to terminal and write `mongosh` or `redis-cli` - it actually executes the command line .exe program (command line interface) which actually can talk to Redis/MongoDB server.
+
+This same when we press MongoDB Compass icon or RedisInsight icon - it also executes .exe program which is graphical interface which actually can talk to Redis/MongoDB server.
+
+But whatever path we choose, we must remember these paths run the GUI or CLI app to talk to this server, but the server has to run before all of this app to work. We can run this CLI/GUI app but if server is not running they won't work, so server needs to run separately and those processes will not start the server - those processes actually start running the CLI/GUI app which can talk to that server, not the server itself. Server needs to run separately manually.
+
+### Data types
+**Strings**
+
+```
 set key value
 set name robin
 
 get name
-=>"robin"
+=> "robin"
+```
 
-convention
+**Convention:**
+```
 <entity>:<id> value
 set user:1 robin
 set user:2 rahul
 set user:3 angel
+```
 
-redis based on this `entity name` groups data
-ex- all of 3 names stored in user group
+Redis based on this `entity name` groups data  
+Ex: all of 3 names stored in user group
 
+```
+set msg:1 hi nx
+```
+`nx` - if `msg:1` key does not exist only then store value "hi", if exists then skip
+
+```
+mget msg:1 user:1 user:2
+```
+`mget` used when we need to fetch multiple keys at once
+
+`mset` for multiple set
+
+**Increasing count:**
+```
+set count 1
+incr count
+incrby count 25
+```
+
+### Access from Node.js
+
+```javascript
+const { Redis } = require("ioredis"); 
+const client = new Redis(); // by default hits 6379 port
+module.exports = client;
+
+const client = require("./client");
+
+async function init() {
+  await client.set("msg:5", "hey from nodejs");
+  const result = await client.get("msg:3");
+  console.log(`output is------> ${result}`);
+}
+
+init();
+```
+
+```javascript
+await client.expire("msg:5", 10);
+```
+Make the key live for only 10 seconds, after that it gets deleted. It is important because when we store data as cache we want that cache to be invalidated because after some point that cache will be stale, so to achieve that we can set expire limit - after that data will be gone from Redis so when server checks in Redis it gets null, so then server queries DB. This way user always gets up-to-date data instead of stale data.
