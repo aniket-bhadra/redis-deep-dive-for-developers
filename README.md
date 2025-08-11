@@ -90,6 +90,39 @@ This same when we press MongoDB Compass icon or RedisInsight icon - it also exec
 
 But whatever path we choose, we must remember these paths run the GUI or CLI app to talk to this server, but the server has to run before all of this app to work. We can run this CLI/GUI app but if server is not running they won't work, so server needs to run separately and those processes will not start the server - those processes actually start running the CLI/GUI app which can talk to that server, not the server itself. Server needs to run separately manually.
 
+### redis authentication
+By default Redis server authentication is off, that is why we can use it without putting any password. If authentication is enabled, then in terminal we must provide redis-cli with password, and while working with Node.js when we call new Redis() here we must provide the password. By default authentication is off, that is why no password is needed. 
+
+To enable authentication either when running Redis server in Docker container provide this way:
+```bash
+docker run -d --name redis-server -p 6379:6379 redis redis-server --requirepass yourpassword
+```
+
+Or for already running container connect to redis-cli and then run:
+```bash
+CONFIG SET requirepass yourpassword
+```
+
+Then next time whenever you want to access:
+```bash
+redis-cli -a yourpassword
+```
+
+`-a` means authentication flag - lets you provide password directly. Or do this:
+```bash
+redis-cli -u redis://:password@localhost:6379
+```
+
+`-u` means URL which lets you put all the configuration directly as URL - password, port, everything as URL.
+
+And for Node.js we provide this way:
+```javascript
+const client = new Redis({
+  host: 'localhost',
+  port: 6379,
+  password: 'mypassword'
+});
+```
 
 ### Data types
 **Strings**
