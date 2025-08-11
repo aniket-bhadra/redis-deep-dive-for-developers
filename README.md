@@ -283,3 +283,38 @@ del keyname
 ### search keys with pattern
 keys item*  ->list all the keys starting name item
 keys user:* -> list all they keys starting name :user (user:1,user:2..)
+
+### redis sets
+Redis set is an unordered collection of unique strings. We can use this to track IP addresses, store user roles.
+
+```bash
+sadd item1 hi
+```
+For add
+
+```bash
+srem item1 hi
+```
+Remove that element
+
+```bash
+sismember item1 hi
+```
+Return 0/1 based on whether that element exists in that set or not
+
+```bash
+sinter setname1 setname2
+```
+Return the common values of these sets
+
+```bash
+scard item1
+```
+Returns the length of this set
+
+```bash
+smembers item1
+```
+Returns all the values inside set
+
+**Most set operations (add, remove, check membership) are O(1) - highly efficient regardless of set size. But SMEMBERS is O(n) so avoid using SMEMBERS on large sets since it's too slow.**
