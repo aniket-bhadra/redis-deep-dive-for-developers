@@ -188,6 +188,11 @@ await client.expire("msg:5", 10);
 ```
 Make the key live for only 10 seconds, after that it gets deleted. It is important because when we store data as cache we want that cache to be invalidated because after some point that cache will be stale, so to achieve that we can set expire limit - after that data will be gone from Redis so when server checks in Redis it gets null, so then server queries DB. This way user always gets up-to-date data instead of stale data.
 
+### redis connection
+When we create a Redis connection with `new Redis()` and perform operations like lpush, get, set, that Redis connection remains open waiting for potential future commands. This open connection prevents the Node.js process from naturally exiting, so the terminal stays hanging. To fix this, after operations we do `await client.quit();` - this gracefully closes the Redis connection which allows the Node.js process to exit normally.
+
+But if we do this, then the next command has to create a connection first, then it will execute, which takes a little more time than if we keep the connection open. So choose when to close based on requirements - if subsequent commands need to execute, leave it open; if not, then close it.
+
 ### Redis List
 Redis list can be used as stack or queues
 
