@@ -318,3 +318,35 @@ smembers item1
 Returns all the values inside set
 
 **Most set operations (add, remove, check membership) are O(1) - highly efficient regardless of set size. But SMEMBERS is O(n) so avoid using SMEMBERS on large sets since it's too slow.**
+
+### redis hashes
+```
+hset bike:1 model pulse brand hun type electric price 200000
+```
+
+This is represented this way:
+```
+bike:1
+{
+  model: pulse
+  brand: hun  
+  type: electric
+  price: 200000
+}
+```
+Here bike:1 is the key.
+
+So to get the value:
+```bash
+hget bike:1 model
+```
+To get multiple values:
+```bash
+hmget bike:1 model price type
+```
+Increment a particular field value:
+```bash
+hincrby bike:1 price 10000
+```
+
+**In Redis hash, most operations are O(1), but expiration-related commands are O(n).**
