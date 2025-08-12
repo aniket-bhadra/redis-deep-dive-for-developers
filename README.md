@@ -350,3 +350,51 @@ hincrby bike:1 price 10000
 ```
 
 **In Redis hash, most operations are O(1), but expiration-related commands are O(n).**
+
+### sorted sets
+Collection of unique strings, ordered by an associated score.
+If two items have the same score, Redis sorts them alphabetically.
+Normal sets are unsorted, but here it's completely sorted, much like priority queue.
+
+```bash
+zadd rank 1 robin
+zadd rank 6 watson
+```
+Here rank is the key, 1,6 is the score and robin, watson is that unique string.
+
+```bash
+zrange rank 0 -1
+```
+Gives all the strings that rank key contains in sorted order.
+
+```bash
+zrevrange rank 0 -1
+```
+Gives all the strings that rank key contains in reverse sorted order.
+
+```bash
+zrank rank riya
+```
+Gives the position of this string, basically tells the rank/position of this string.
+
+```bash
+zrangebyscore rank -inf 10
+```
+Searching by score, here it returns all the strings whose score is between -infinity to 10.
+
+```bash
+zrem rank riya
+```
+Remove the string riya.
+
+```bash
+zadd rank 25 riya
+```
+If riya already exists then its score gets updated and returns 0, if it does not exist it gets created and returns 1.
+
+```bash
+zincrby rank 20 virat
+```
+The score of string virat is incremented by 20.
+
+Sorted sets is like a mix of sets and hash. Sets is a collection of unique strings, sorted sets also collection of unique strings but unlike sets it is sorted. Every string is associated with a score value just like hash. And most sorted set operations are O(log(n)), where *n* is the number of members.
