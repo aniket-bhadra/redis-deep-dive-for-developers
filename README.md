@@ -458,3 +458,23 @@ xadd msg 1 name jon
 xadd msg 2 name jane
 ```
 Redis streams have O(1) insertion AND O(log N) random access by ID. Reading a range of entries is O(N) where N is the number of entries returned
+
+### Geospatial
+This lets us add latitude longitude data, meaning suppose inside `hotels:near` key I'm listing 3 hotels:
+
+```bash
+GEOADD hotels:near -122.27652 37.805186 hotel1
+GEOADD hotels:near -122.27652 37.805186 hotel2
+GEOADD hotels:near -122.27652 37.805186 hotel3
+```
+
+Now I've a user latitude and longitude, I can search within this user latitude longitude within 7km distance what hotels are available:
+
+```bash
+GEOSEARCH hotels:near FROMLONLAT -122.2612767 37.7936847 BYRADIUS 7 km WITHDIST
+```
+
+This is user latitude longitude, now Redis automatically calculates and shows list of hotels.
+
+Redis geospatial indexes let you store coordinates and search for them.
+(longitude comes before latitude)
