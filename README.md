@@ -398,3 +398,63 @@ zincrby rank 20 virat
 The score of string virat is incremented by 20.
 
 Sorted sets is like a mix of sets and hash. Sets is a collection of unique strings, sorted sets also collection of unique strings but unlike sets it is sorted. Every string is associated with a score value just like hash. And most sorted set operations are O(log(n)), where *n* is the number of members.
+
+### redis streams
+Redis streams is a data structure that acts like append-only log - no modification, only append at the end sequentially, that is why this time complexity is O(1). But this data structure allows certain operations which other append-only logs do not, like random access that too in O(1) complexity.
+
+Redis generates a unique ID for each stream entry. You can use these IDs to retrieve their associated entries later or to read and process all subsequent entries in the stream. After each entry it returns that unique ID.
+
+```
+1692632086370-0
+```
+
+Here number before 0 → timestamp of when this entry is created  
+0 → at this timestamp how many entries are created
+
+Suppose at same timestamp 3 entries are created, so those 3 are represented this way:
+```
+1692632086370-0
+1692632086370-1
+1692632086370-2
+```
+
+This way it handles concurrent entries at the same time.
+
+```bash
+XADD messages:room1 * user john message "hello world"
+```
+**Here:**
+- `messages:room1` = stream key (like a chat room)
+- `*` = auto-generate ID 
+- `user john message "hello world"` = data (user=john, message="hello world")
+after the key name and ID, the next arguments are the field-value pairs
+
+Read two stream entries starting at ID 1754981631505-0
+ xrange msg:room1 1754981631505-0 + count 2
+
+**xread count 100 block 300 streams msg:room1 $**
+
+`$` means "read only NEW entries that come AFTER this command runs" - since no one added new messages to msg:room1 during those 300ms, it returns nothing.
+
+`0` = read all existing entries
+
+**xread count 100 block 300 streams msg:room1 0**
+
+So it gives all the messages from beginning of the stream, but to get all messages from beginning there is no point to use block, so we can do:
+
+**XREAD STREAMS msg:room1 0**
+
+**XRANGE msg:room1 1754981631505 1754981764472**
+
+Reading data from between timeframes.
+
+xdel msg:room1 1754981764472-0
+delete this stream
+
+**XADD can take explicit IDs instead of auto-generated ID we do with `*`, but in that case keep in mind next ID always has to be greater than previous:**
+
+```
+xadd msg 1 name jon
+xadd msg 2 name jane
+```
+Redis streams have O(1) insertion AND O(log N) random access by ID. Reading a range of entries is O(N) where N is the number of entries returned
