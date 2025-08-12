@@ -575,3 +575,39 @@ So yes - the client exits Pub/Sub state only when the count drops to zero!
 
 **Sharded Pub/Sub:**
 Regular Pub/Sub broadcasts to ALL nodes in cluster (inefficient). Sharded Pub/Sub sends each channel to only ONE specific node based on hash (much faster).
+
+## WebSocket Scaling Problem:
+
+**Problem:** Multiple server instances can't share WebSocket connections.
+
+**Example Chat App Issue:**
+When there are userA and userB connected to 1 server (server1), then with the help of websockets chat app can function - userA sends msg to server1, whenever server1 gets msg it sends the msg to userB with help of websockets. But the problem occurs when we scale to multiple servers server1, server2, server3:
+
+- User A connects to Server 1
+- User B connects to Server 2  
+- When User A sends message, only users on Server 1 see it
+- User B (on Server 2) doesn't get the message!
+
+## Redis Pub/Sub Solution:
+
+**How it works:**
+1. All servers subscribe to same Redis channel: `SUBSCRIBE chat_room_1`
+2. When User A sends message → Server 1 publishes to Redis: `PUBLISH chat_room_1 "Hello"`
+3. Redis broadcasts to ALL servers (Server 1, Server 2, etc.)
+4. Each server sends message to their connected WebSocket clients
+5. Now User B (on Server 2) also gets the message!
+
+**Steps:**
+```javascript
+// Each server does this:
+redis.subscribe('chat_room_1')
+redis.on('message', (channel, message) => {
+  // Send to all WebSocket clients on THIS server
+  webSocketClients.forEach(client => client.send(message))
+})
+
+// When user sends message:
+redis.publish('chat_room_1', userMessage)
+```
+
+**Result:** All users across all servers see messages in real-time!
