@@ -459,6 +459,9 @@ xadd msg 2 name jane
 ```
 Redis streams have O(1) insertion AND O(log N) random access by ID. Reading a range of entries is O(N) where N is the number of entries returned
 
+XREAD STREAMS mystream 1754999320689-0
+gives you messages after the ID you pass.
+
 ### Geospatial
 This lets us add latitude longitude data, meaning suppose inside `hotels:near` key I'm listing 3 hotels:
 
@@ -478,3 +481,97 @@ This is user latitude longitude, now Redis automatically calculates and shows li
 
 Redis geospatial indexes let you store coordinates and search for them.
 (longitude comes before latitude)
+
+### pubsub
+Redis Pub/Sub uses channels, not keys
+Keys store actual data,Operations like SET,LPUSH work with keys. Data persists until explicitly deleted or expired.
+Channels are just names- they don't store data, When you publish a message to a channel, all subscribers to that channel receive it immediately
+Messages are ephemeral - if no one is subscribed, the message is lost.
+this Very fast and lightweight but No persistence, no delivery guarantees
+that is why streams + pubsubs is used
+How it works:
+
+Producer adds message to stream: XADD mystream * data "hello"
+Producer publishes notification: PUBLISH mystream:notify "new message"
+Consumers subscribed to mystream:notify get instant notification
+Consumers then read from stream: XREAD STREAMS mystream $
+Even if consumer was offline, messages are still in the stream
+this ensures Guaranteed delivery (via Streams) for offline consumers,we can re-read old messages from any point in the stream.
+
+we use streams here instead of other data types because streams have **Auto timestamps**, **Concurrent writes**: Multiple clients can push data at the same time - streams handle this efficiently without conflicts, **Tracks timestamps**: Natural chronological ordering of messages
+
+in pubsub if we use channels to publish then the subscriber gets the msg automatically when new msg arrives but if we use streams then when new msg arrives we have to manually read the stream XREAD STREAMS mystream LAST_MESSAGE_ID , we just get notification that new msg arrived but to read we have to manually read after that.
+
+## Hybrid approach works like this:
+we can't subscribe to a stream directly like you do with channels.
+
+**Step 1:** Create a separate Pub/Sub channel for notifications
+```redis
+SUBSCRIBE mystream_notifications
+```
+
+**Step 2:** When producer adds to stream, it does TWO things:
+```redis
+XADD mystream * data "hello"           # Add to stream
+PUBLISH mystream_notifications "new"   # Notify via pub/sub
+```
+
+**Step 3:** Consumer gets pub/sub notification, then reads stream:
+```redis
+# Consumer receives pub/sub notification "new"
+# Then manually reads from stream:
+XREAD STREAMS mystream LAST_MESSAGE_ID
+```
+
+## Key point:
+- **Stream** = stores the actual data
+- **Pub/Sub channel** = sends notifications only
+- They are separate things with similar names (like `mystream` and `mystream_notifications`)
+
+You subscribe to the **channel** for notifications, then read from the **stream** for actual data.
+
+Please note that when using redis-cli, in subscribed mode commands such as UNSUBSCRIBE 
+wont work can only quit the mode with Ctrl-C.
+
+
+This explains the **format of responses** you get when using Redis Pub/Sub.
+
+When you subscribe to a channel, Redis sends you **arrays with 3 parts**:
+
+## 1. `subscribe` response:
+```
+["subscribe", "news", 1]
+```
+- `"subscribe"` = you successfully subscribed
+- `"news"` = channel name you subscribed to  
+- `1` = total channels you're now subscribed to
+ you get when you subscribe to a channel
+
+## 2. `unsubscribe` response:
+```
+["unsubscribe", "news", 0]
+```
+- `"unsubscribe"` = you successfully unsubscribed
+- `"news"` = channel you unsubscribed from
+- `0` = total channels remaining (0 means you can run normal Redis commands again),
+ you get when you unsubscribe to a channel
+
+## 3. `message` response:
+```
+["message", "news", "Breaking story!"]
+```
+- `"message"` = actual message received
+- `"news"` = which channel it came from
+- `"Breaking story!"` = the actual message content
+you get when a message comes to you from that channel
+
+When you're subscribed to channels, you're in "Pub/Sub mode" and can only run Pub/Sub commands like SUBSCRIBE, UNSUBSCRIBE, PUBLISH.
+
+You can't run normal Redis commands like GET, SET, LPUSH while subscribed.
+
+**Only when the count reaches 0** (meaning you unsubscribed from ALL channels) do you exit Pub/Sub mode and can run normal Redis commands again.
+
+So yes - the client exits Pub/Sub state only when the count drops to zero!
+
+**Sharded Pub/Sub:**
+Regular Pub/Sub broadcasts to ALL nodes in cluster (inefficient). Sharded Pub/Sub sends each channel to only ONE specific node based on hash (much faster).
