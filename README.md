@@ -15,9 +15,11 @@ Redis primarily stores data in RAM for speed but also saves snapshots to disk.Th
 Redis doesn't auto-delete old snapshots, You control retention 
 there is 2 types RDB (Redis Database Backup), AOF (Append-Only File)
 RDB and AOF are used to permanently store Redis data on disk to survive server crashes and restarts.
-
-RDB: Creates periodic snapshots based on time intervals + number of changes (binary files) - fast recovery but may lose recent data between snapshots.
-AOF: Logs every write command immediately - maximum data safety but slower startup, and most production uses both together.
+RDB creates snapshots of RAM at specified intervals and saves to disk ✓
+AOF stores every write command to disk, but not as snapshots - it logs each write operation as it happens (like a journal/log file).
+By default Redis uses RDB ✓
+RDB: fast recovery but may lose recent data between snapshots.
+AOF: maximum data safety but slower startup, and most production uses both together.
 
 ### why use Redis for caching instead of server Ram?
 We use Redis for caching instead of server RAM because storing data separately makes the server stateless, making scaling easier.
@@ -569,12 +571,30 @@ When you're subscribed to channels, you're in "Pub/Sub mode" and can only run Pu
 
 You can't run normal Redis commands like GET, SET, LPUSH while subscribed.
 
-**Only when the count reaches 0** (meaning you unsubscribed from ALL channels) do you exit Pub/Sub mode and can run normal Redis commands again.
+**Only when the count reaches 0** (meaning you unsubscribed from ALL channels) you exit Pub/Sub mode and can run normal Redis commands again.
 
 So yes - the client exits Pub/Sub state only when the count drops to zero!
 
 **Sharded Pub/Sub:**
-Regular Pub/Sub broadcasts to ALL nodes in cluster (inefficient). Sharded Pub/Sub sends each channel to only ONE specific node based on hash (much faster).
+Each Redis node = 1 Redis server process. Let's say each node has 3 subscribers connected.
+
+**Regular Pub/Sub:**
+- You have 4 Redis nodes: Node A, Node B, Node C, Node D
+- When someone publishes message "hello" to channel "chat", then A, B, C, D - everybody gets it even if they don't have subscribers for that channel
+- Even if subscribers for "chat" channel are only on Node B, nodes A, C, and D still get the message (waste!)
+
+**Sharded Pub/Sub:**
+- Same 4 nodes: A, B, C, D
+- Channel "chat" gets assigned to only Node B (based on hash)
+- You publish "hello" - it goes ONLY to Node B
+- Only subscribers connected to Node B get the message
+- Nodes A, C, and D don't get involved at all
+
+**The key difference:**
+- Regular = message goes everywhere, even where not needed
+- Sharded = message goes only where it's needed
+
+It's like shouting vs whispering to the right person.
 
 ## WebSocket Scaling Problem:
 
