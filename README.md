@@ -1,3 +1,33 @@
+# Redis Complete Guide
+
+## Table of Contents
+
+1. [Memoization vs Caching](#memoization-vs-caching)
+2. [Why Redis for Caching?](#why-use-redis-for-caching-instead-of-server-ram)
+   - [Two Redis Cache Approaches](#two-redis-cache-approaches)
+3. [Redis vs Redis Cloud vs Redis Stack](#redis-vs-redis-cloud-vs-redis-stack)
+4. [Installation](#installation)
+5. [Redis Authentication](#redis-authentication)
+6. [Data Types](#data-types)
+7. [Access from Node.js](#access-from-nodejs)
+8. [Redis Connection](#redis-connection)
+9. [Redis List](#redis-list)
+   - [Blocking Commands](#blocking-commands)
+   - [Capped List](#capped-list)
+10. [Delete Key](#delete-key)
+11. [Search Keys with Pattern](#search-keys-with-pattern)
+12. [Redis Sets](#redis-sets)
+13. [Redis Hashes](#redis-hashes)
+14. [Sorted Sets](#sorted-sets)
+15. [Redis Streams](#redis-streams)
+16. [Geospatial](#geospatial)
+17. [Pub/Sub](#pubsub)
+    - [Hybrid Approach](#hybrid-approach-works-like-this)
+    - [Sharded Pub/Sub](#sharded-pubsub)
+18. [WebSocket Scaling Problem](#websocket-scaling-problem)
+
+---
+
 ## Memoization vs Caching
 
 - **Caching**: Stores any frequently retrieved data to speed up access.  
