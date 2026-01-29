@@ -25,6 +25,10 @@
     - [Hybrid Approach](#hybrid-approach-works-like-this)
     - [Sharded Pub/Sub](#sharded-pubsub)
 18. [WebSocket Scaling Problem](#websocket-scaling-problem)
+19. [Redis Memory Management & Usage Guide](#redis-memory-management--usage-guide)
+    - [Memory Management & Eviction Policies](#memory-management--eviction-policies)
+    - [When to Use Redis & When NOT to Use Redis](#when-to-use-redis--when-not-to-use-redis)
+    - [Quick Decision Matrix](#quick-decision-matrix)
 
 ---
 
@@ -661,3 +665,245 @@ redis.publish('chat_room_1', userMessage)
 ```
 
 **Result:** All users across all servers see messages in real-time!
+
+## Redis Memory Management & Usage Guide
+
+### Memory Management & Eviction Policies
+
+Redis is an in-memory database - what happens when memory fills up?
+
+### Eviction Policies
+
+Configure with `maxmemory-policy`:
+
+#### 1. noeviction (Default)
+```bash
+# Returns error when memory limit reached
+maxmemory 2gb
+maxmemory-policy noeviction
+```
+- ❌ Writes fail when memory full
+- ✅ Ensures no data loss
+- **Use case:** Cache where missing data isn't critical
+
+#### 2. allkeys-lru
+```bash
+maxmemory-policy allkeys-lru
+```
+- Evicts least recently used keys
+- **Use case:** Pure cache, any key can be evicted
+
+#### 3. volatile-lru
+```bash
+maxmemory-policy volatile-lru
+```
+- Evicts LRU keys that have TTL set
+- Keys without TTL are never evicted
+- **Use case:** Mix of cached and permanent data
+
+#### 4. allkeys-lfu
+```bash
+maxmemory-policy allkeys-lfu
+```
+- Evicts least frequently used keys
+- Better than LRU for real-world access patterns
+- **Use case:** Modern caching (Redis 4.0+)
+
+#### 5. volatile-ttl
+```bash
+maxmemory-policy volatile-ttl
+```
+- Evicts keys with shortest TTL first
+- **Use case:** Time-sensitive data with explicit expiration
+
+#### 6. allkeys-random
+```bash
+maxmemory-policy allkeys-random
+```
+- Randomly evicts keys
+- **Use case:** When access patterns are truly random
+
+#### 7. volatile-random
+```bash
+maxmemory-policy volatile-random
+```
+- Randomly evicts keys with TTL
+- **Use case:** Mix of permanent and temporary data
+
+#### 8. volatile-lfu
+```bash
+maxmemory-policy volatile-lfu
+```
+- Evicts least frequently used keys that have TTL
+- **Use case:** Temporary data with frequency-based priority
+
+### Setting Up Eviction
+
+```bash
+# In redis.conf
+maxmemory 2gb
+maxmemory-policy allkeys-lfu
+
+# Or via CLI
+CONFIG SET maxmemory 2gb
+CONFIG SET maxmemory-policy allkeys-lfu
+```
+
+### Monitoring Memory
+
+```javascript
+// Check memory usage
+const info = await client.info('memory');
+console.log(info);
+
+// Get specific memory stats
+const used = await client.memory('usage', 'user:123');
+console.log(`Key uses ${used} bytes`);
+```
+
+### Best Practices
+
+```javascript
+// ✅ Set TTL on cache entries
+await client.setex('session:abc', 3600, JSON.stringify(sessionData));
+
+// ✅ Use volatile-lru if you have both cached and permanent data
+// Permanent data (no TTL)
+await client.set('config:app', 'production');
+
+// Cached data (with TTL) - these get evicted first
+await client.setex('cache:user:123', 300, userData);
+
+// ❌ Don't let Redis run out of memory
+// Monitor with: INFO memory
+// Alert when: used_memory > 80% of maxmemory
+```
+
+### Production Monitoring
+
+```javascript
+async function checkMemoryHealth() {
+  const info = await client.info('memory');
+  const maxMemory = parseFloat(info.match(/maxmemory:(\d+)/)[1]);
+  const usedMemory = parseFloat(info.match(/used_memory:(\d+)/)[1]);
+  
+  const usage = (usedMemory / maxMemory) * 100;
+  
+  if (usage > 80) {
+    console.warn(`⚠️ Redis memory at ${usage.toFixed(2)}%`);
+    // Alert ops team
+  }
+}
+
+// Run every 5 minutes
+setInterval(checkMemoryHealth, 5 * 60 * 1000);
+```
+
+### Memory Optimization Tips
+
+```javascript
+// 1. Use hashes for related data (more memory efficient)
+// ❌ Bad - separate keys
+await client.set('user:123:name', 'Alice');
+await client.set('user:123:email', 'alice@example.com');
+await client.set('user:123:age', '25');
+
+// ✅ Good - single hash
+await client.hset('user:123', {
+  name: 'Alice',
+  email: 'alice@example.com',
+  age: 25
+});
+
+// 2. Use compression for large strings
+const data = JSON.stringify(largeObject);
+const compressed = zlib.gzipSync(data);
+await client.setex('cache:data', 300, compressed);
+
+// 3. Set appropriate TTLs
+await client.setex('temp:session', 1800, sessionData);  // 30 min
+await client.setex('cache:product', 300, productData);   // 5 min
+
+// 4. Clean up expired keys
+// Redis does this automatically, but you can force:
+await client.expire('old:key', 0);  // Expire immediately
+```
+
+---
+
+## When to Use Redis & When NOT to Use Redis
+
+### ❌ When NOT to Use Redis
+
+- **Complex SQL queries** - Can't do JOINs, WHERE with multiple conditions, GROUP BY efficiently
+- **Primary database for critical data** - Persistence has trade-offs (RDB loses minutes of data, AOF is slower)
+- **ACID transactions across multiple databases** - Redis transactions are limited, can't rollback
+- **Large binary files (images, videos, PDFs)** - Use S3/CloudFlare R2 instead, store URLs in Redis
+- **Complex relationships and graph queries** - Use Neo4j or PostgreSQL for "friends of friends" queries
+- **Full-text search** - Use Elasticsearch or PostgreSQL full-text search
+- **Data warehouse and analytics** - Use ClickHouse, BigQuery for large-scale analytics
+- **Compliance requiring guaranteed durability** - Banking/financial systems need PostgreSQL with ACID
+
+### ✅ When to Use Redis
+
+- **Session storage** - Fast access, automatic expiration with TTL
+- **Caching layer** - Reduce database load by 80-90%, speed up repeated queries
+- **Rate limiting** - Track API requests per user/IP with atomic increments
+- **Real-time leaderboards** - Sorted sets perfect for gaming scores, rankings
+- **Job queues** - Background tasks with lists and blocking commands (BLPOP)
+- **Pub/Sub messaging** - Real-time notifications, chat applications, live updates
+- **Geospatial queries** - Find nearby locations (restaurants, stores, users)
+- **Counters and analytics** - Page views, likes, shares with atomic operations
+- **Temporary data with TTL** - OTP codes, password reset tokens, temporary locks
+- **Distributed locks** - Coordinate work across multiple servers/workers
+
+### 🏗️ The Right Architecture
+
+**Use Redis as a Cache Layer (Not Primary Database):**
+
+```javascript
+async function getUser(userId) {
+  // 1. Try cache first (fast)
+  const cached = await redis.get(`user:${userId}`);
+  if (cached) return JSON.parse(cached);
+  
+  // 2. Cache miss - get from primary DB
+  const user = await postgres.query(
+    'SELECT * FROM users WHERE id = $1', 
+    [userId]
+  );
+  
+  // 3. Store in cache for next time (5 min TTL)
+  await redis.setex(`user:${userId}`, 300, JSON.stringify(user));
+  
+  return user;
+}
+```
+
+**Key Principle:**
+- **Primary/Critical Data** → PostgreSQL/MongoDB (durable, ACID, complex queries)
+- **Cached/Temporary Data** → Redis (speed, performance, reduce DB load)
+- **Best Results** → Both together for maximum performance + reliability
+
+---
+
+## Quick Decision Matrix
+
+| Need | Use Redis? | Use Instead |
+|------|-----------|-------------|
+| Speed up repeated queries | ✅ Yes | - |
+| User sessions | ✅ Yes | - |
+| Real-time leaderboards | ✅ Yes | - |
+| Complex SQL with JOINs | ❌ No | PostgreSQL |
+| Store images/videos | ❌ No | S3, CloudFlare R2 |
+| Primary user data | ❌ No | PostgreSQL/MongoDB |
+| Banking transactions | ❌ No | PostgreSQL |
+| Background job queue | ✅ Yes | BullMQ (uses Redis) |
+| Real-time chat | ✅ Yes (Pub/Sub) | - |
+| Full-text search | ❌ No | Elasticsearch |
+| Graph relationships | ❌ No | Neo4j |
+| Rate limiting API | ✅ Yes | - |
+
+---
+
+**Remember:** Redis excels at speed and simplicity. Use it where these matter most, and pair it with traditional databases for durability and complex queries.
